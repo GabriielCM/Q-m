@@ -1,35 +1,20 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wrench, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { LayoutDashboard, Wrench, ChevronLeft, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { navLinks, modulePermissions } from '../config/permissions';
 
-const NavItem = ({ to, icon: Icon, text, isCollapsed }) => {
-  const navLinkClasses = ({ isActive }) =>
-    `flex items-center h-12 rounded-lg transition-colors duration-200 relative ${ 
-      isCollapsed ? 'justify-center' : 'px-4'
-    } ${
-      isActive
-        ? 'bg-blue-600 text-white'
-        : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-    }`;
-
-  return (
-    <li className="group">
-      <NavLink to={to} className={navLinkClasses} end={to === '/'}>
-        <Icon className={`w-6 h-6 flex-shrink-0 ${!isCollapsed && 'mr-3'}`} />
-        {!isCollapsed && (
-          <span className="whitespace-nowrap">{text}</span>
-        )}
-        {isCollapsed && (
-          <div className="absolute left-full ml-4 px-2 py-1 rounded-md bg-slate-900 text-sm font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">
-            {text}
-          </div>
-        )}
-      </NavLink>
-    </li>
-  );
+const icons = {
+  LayoutDashboard,
+  Wrench,
 };
 
 const SideMenu = ({ isCollapsed, toggleSidebar }) => {
+  const { user, logout } = useAuth();
+
+  const allowedRoutes = user ? modulePermissions[user.role] : [];
+  const filteredNavLinks = navLinks.filter(link => allowedRoutes.includes(link.path));
+
   return (
     <aside
       className={`flex-shrink-0 bg-slate-800 flex flex-col justify-between transition-all duration-300 ease-in-out ${
@@ -37,29 +22,54 @@ const SideMenu = ({ isCollapsed, toggleSidebar }) => {
       }`}
     >
       <div>
-        <div className={`flex items-center justify-center h-20 border-b border-slate-700 overflow-hidden`}>
-          <Wrench className={`w-10 h-10 text-blue-500 flex-shrink-0 transition-transform duration-300 ${isCollapsed ? 'rotate-12' : ''}`} />
-          {!isCollapsed && (
-            <span className={`ml-3 text-2xl font-bold text-white whitespace-nowrap`}>
-              AutoInspect
-            </span>
-          )}
+        <div className="flex items-center justify-center h-20 border-b border-slate-700">
+          <Wrench size={32} className="text-blue-500 flex-shrink-0" />
+          {!isCollapsed && <h1 className="text-xl font-bold ml-2">AutoInspect</h1>}
         </div>
-        <nav className="p-4">
-          <ul className="space-y-2">
-            <NavItem to="/" icon={LayoutDashboard} text="Dashboard" isCollapsed={isCollapsed} />
-            <NavItem to="/inspection" icon={Wrench} text="Inspeção" isCollapsed={isCollapsed} />
-            {/* Futuros links de módulos podem ser adicionados aqui */}
+        <nav className="mt-4">
+          <ul>
+            {filteredNavLinks.map((link) => {
+              const Icon = icons[link.icon];
+              return (
+                <li key={link.path}>
+                  <NavLink
+                    to={link.path}
+                    end
+                    className={({ isActive }) =>
+                      `flex items-center py-3 px-6 my-1 transition-colors duration-200 ${isCollapsed ? 'justify-center' : ''} ${
+                        isActive
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-700'
+                      }`
+                    }
+                  >
+                    {Icon && <Icon className="flex-shrink-0" />}
+                    {!isCollapsed && <span className="ml-4">{link.label}</span>}
+                  </NavLink>
+                </li>
+              );
+            })}
           </ul>
         </nav>
       </div>
 
-      <div className="p-4 border-t border-slate-700">
+      <div className="border-t border-slate-700 p-4">
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+            {!isCollapsed && user && (
+              <div className="flex flex-col">
+                <span className="font-semibold text-white text-sm">{user.name}</span>
+                <span className="text-slate-400 text-xs">{user.role}</span>
+              </div>
+            )}
+            <button onClick={logout} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                <LogOut size={20} />
+            </button>
+        </div>
         <button
           onClick={toggleSidebar}
-          className="w-full flex items-center justify-center h-12 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-colors duration-200"
+          className="w-full flex items-center justify-center mt-4 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"
         >
-          {isCollapsed ? <ChevronsRight className="w-6 h-6" /> : <ChevronsLeft className="w-6 h-6" />}
+          <ChevronLeft size={20} className={`transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>
     </aside>

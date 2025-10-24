@@ -312,7 +312,7 @@ const InspectionModule = () => {
       <div className="my-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl flex justify-between items-center backdrop-blur-sm">
         <div className="flex items-center gap-2 text-amber-400">
           <AlertTriangle className="w-5 h-5" />
-          <p className="font-semibold">Todos os registros devem ser inspecionados antes de salvar a rotina.</p>
+          <p className="font-semibold">Adicione seu CRM Link clicando no ícone de chave</p>
         </div>
         <button onClick={handleSaveInspected} disabled={selectedIds.size === 0} className="flex items-center gap-2 px-6 py-3 font-bold text-white bg-green-600 rounded-lg shadow-lg hover:bg-green-500 transition-all duration-300 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:shadow-none">
           <Save className="w-5 h-5" />
