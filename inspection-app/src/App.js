@@ -1,11 +1,21 @@
 import React from 'react';
-import InspectionModule from './InspectionModule';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import DashboardLayout from './layouts/DashboardLayout';
+import Dashboard from './pages/Dashboard';
+import InspectionPage from './pages/InspectionPage';
+import './index.css';
 
 function App() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 font-sans p-4 sm:p-6 lg:p-8">
-      <InspectionModule />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<DashboardLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="inspection" element={<InspectionPage />} />
+          {/* Outras rotas de módulos podem ser adicionadas aqui */}
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
 
