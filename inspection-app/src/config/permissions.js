@@ -7,7 +7,7 @@ export const navLinks = [
   {
     path: '/inspection',
     label: 'Inspeção',
-    icon: 'Wrench',
+    icon: 'SearchCheck',
   },
   // Add future modules here
 ];

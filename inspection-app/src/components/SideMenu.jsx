@@ -1,12 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wrench, ChevronLeft, LogOut } from 'lucide-react';
+import { LayoutDashboard, Wrench, SearchCheck, ChevronLeft, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { navLinks, modulePermissions } from '../config/permissions';
 
 const icons = {
   LayoutDashboard,
-  Wrench,
+  SearchCheck,
 };
 
 const SideMenu = ({ isCollapsed, toggleSidebar }) => {
@@ -23,8 +23,8 @@ const SideMenu = ({ isCollapsed, toggleSidebar }) => {
     >
       <div>
         <div className="flex items-center justify-center h-20 border-b border-slate-700">
-          <Wrench size={32} className="text-blue-500 flex-shrink-0" />
-          {!isCollapsed && <h1 className="text-xl font-bold ml-2">AutoInspect</h1>}
+          <SearchCheck size={32} className="text-blue-500 flex-shrink-0" />
+          {!isCollapsed && <h1 className="text-xl font-bold ml-2">Q-Manager</h1>}
         </div>
         <nav className="mt-4">
           <ul>
