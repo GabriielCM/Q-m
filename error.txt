@@ -1,0 +1,29 @@
+File name: sup2850.moacir.380.lst
+Parsing file content...
+File parsed successfully, number of records: 2
+Getting latest report for screen: sup2850 and user: moacir
+Latest report: undefined
+Inserting new report: {
+  report_name: 'sup2850.moacir.380.lst',
+  screen: 'sup2850',
+  user: 'moacir',
+  version: 380,
+  file_path: 'sup2850.moacir.380.lst'
+}
+Error inserting report: Error: SQLITE_BUSY: database is locked
+--> in Statement#run([
+  'sup2850.moacir.380.lst',
+  'sup2850',
+  'moacir',
+  380,
+  'sup2850.moacir.380.lst'
+], [Function: replacement])
+    at Database.<anonymous> (C:\Users\gabriel.silva\Desktop\PASTA TESTE EXLUIR\inspection-app\node_modules\sqlite3\lib\sqlite3.js:76:19)
+    at Database.<anonymous> (C:\Users\gabriel.silva\Desktop\PASTA TESTE EXLUIR\inspection-app\node_modules\sqlite3\lib\sqlite3.js:20:19)
+    at insertReport (C:\Users\gabriel.silva\Desktop\PASTA TESTE EXLUIR\inspection-app\src\database\db.js:26:6)
+    at C:\Users\gabriel.silva\Desktop\PASTA TESTE EXLUIR\inspection-app\server.js:61:13
+    at Statement.<anonymous> (C:\Users\gabriel.silva\Desktop\PASTA TESTE EXLUIR\inspection-app\src\database\db.js:66:9) {
+  errno: 5,
+  code: 'SQLITE_BUSY',
+  __augmented: true
+}

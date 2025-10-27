@@ -3,7 +3,7 @@
  * @param {string} fileContent The raw string content of the .lst file.
  * @returns {Array<object>} An array of record objects.
  */
-export function parseLstFile(fileContent) {
+function parseLstFile(fileContent) {
   const lines = fileContent.split('\n');
   const records = [];
   
@@ -60,3 +60,7 @@ export function parseLstFile(fileContent) {
   
   return records;
 }
+
+module.exports = {
+    parseLstFile
+};

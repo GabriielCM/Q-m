@@ -3,7 +3,7 @@ import { parseLstFile } from '../fileParser';
 import { Upload, ShieldCheck, AlertTriangle, Info, CheckCircle, X, Save, Trash2, FileText, Search, GripVertical, Key, Link2, Move } from 'lucide-react';
 
 // --- Constantes ---
-const HISTORY_STORAGE_KEY = 'inspecionados-historico';
+
 const CRM_STORAGE_KEY = 'crm-info';
 
 // --- Componentes de UI reutilizáveis ---
@@ -173,60 +173,90 @@ const DraggableFab = ({ onClick }) => {
     );
 };
 
-// --- Componente Principal ---
 const InspectionModule = () => {
   const [records, setRecords] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [inspectedHistory, setInspectedHistory] = useState(new Set());
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [crmInfo, setCrmInfo] = useState({ baseUrl: '', token: '' });
   const fileInputRef = useRef(null);
 
-  // Efeitos de carregamento e salvamento
   useEffect(() => {
     try {
-      const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
       const storedCrmInfo = localStorage.getItem(CRM_STORAGE_KEY);
-      if (storedHistory) setInspectedHistory(new Set(JSON.parse(storedHistory)));
       if (storedCrmInfo) setCrmInfo(JSON.parse(storedCrmInfo));
     } catch (error) {
       console.error("Failed to load data from localStorage:", error);
       showToast('Falha ao carregar dados salvos.', 'error');
     }
+
+    const fetchRecords = async () => {
+        try {
+            const response = await fetch('/api/records');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            setRecords(data);
+        } catch (error) {
+            console.error("Failed to fetch records:", error);
+            showToast('Erro ao carregar registros do banco de dados.', 'error');
+        }
+    };
+    fetchRecords();
   }, []);
 
   useEffect(() => {
     try {
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(Array.from(inspectedHistory)));
       localStorage.setItem(CRM_STORAGE_KEY, JSON.stringify(crmInfo));
     } catch (error) {
       console.error("Failed to save data to localStorage:", error);
       showToast('Falha ao salvar dados.', 'error');
     }
-  }, [inspectedHistory, crmInfo]);
+  }, [crmInfo]);
+  
 
   const showToast = (message, type = 'info') => {
     setToast({ id: Date.now(), message, type });
   };
   
   // Handlers de Ações
-  const handleFileChange = (event) => {
+  const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const parsedRecords = parseLstFile(e.target.result);
-        setRecords(prev => {
-          const existingIds = new Set(prev.map(r => r.id));
-          const newRecords = parsedRecords.filter(r => !existingIds.has(r.id));
-          if(newRecords.length > 0) showToast(`${newRecords.length} novos registros adicionados.`, 'success');
-          else showToast('Nenhum registro novo encontrado no arquivo.', 'info');
-          return [...prev, ...newRecords];
-        });
-      } catch (error) { showToast('Erro ao processar o arquivo .lst.', 'error'); }
+    reader.onload = async (e) => {
+        try {
+            const fileName = file.name;
+            const fileContent = e.target.result;
+
+            const response = await fetch('/api/import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ fileName, fileContent }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                showToast(result.message || 'Erro ao importar o relatório.', 'error');
+                return;
+            }
+
+            showToast(result.message, 'success');
+            // Reload records
+            const recordsResponse = await fetch('/api/records');
+            const recordsData = await recordsResponse.json();
+            setRecords(recordsData);
+
+        } catch (error) {
+            console.error('Error processing file:', error);
+            showToast('Erro ao processar o arquivo .lst.', 'error');
+        }
     };
     reader.onerror = () => showToast('Não foi possível ler o arquivo.', 'error');
     reader.readAsText(file, 'ISO-8859-1');
@@ -263,29 +293,52 @@ const InspectionModule = () => {
   const handleInspectToggle = (id) => {
     setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   }
-  const handleRemoveAlreadyInspected = (id) => { setRecords(prev => prev.filter(r => r.id !== id)); showToast('Registro removido da lista.', 'info'); };
+  
   const handleSaveInspected = () => {
     if (selectedIds.size > 0) setIsConfirmModalOpen(true);
   };
   
-  const handleConfirmInspection = () => {
-    const newHistory = new Set(inspectedHistory);
-    selectedIds.forEach(id => {
-      const record = records.find(r => r.id === id);
-      if (record) newHistory.add(`${record.numAviso}-${record.item}-${record.qtdRecebida}`);
+  const handleConfirmInspection = async () => {
+    const promises = Array.from(selectedIds).map(async (id) => {
+        try {
+            const response = await fetch(`/api/records/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: 'inspected' }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Failed to update record ${id}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error(`Error updating record ${id}:`, error);
+            throw error; // Re-throw to be caught by Promise.allSettled
+        }
     });
-    setInspectedHistory(newHistory);
-    setRecords(prev => prev.filter(r => !selectedIds.has(r.id)));
-    setSelectedIds(new Set());
-    setIsConfirmModalOpen(false);
-    showToast(`${selectedIds.size} itens marcados como inspecionados!`, 'success');
+
+    try {
+        await Promise.all(promises);
+        showToast(`${selectedIds.size} itens marcados como inspecionados!`, 'success');
+        setSelectedIds(new Set());
+        setIsConfirmModalOpen(false);
+        // Reload records
+        const recordsResponse = await fetch('/api/records');
+        const recordsData = await recordsResponse.json();
+        setRecords(recordsData);
+    } catch (error) {
+        showToast('Erro ao atualizar o status dos registros.', 'error');
+    }
   };
 
   const enrichedRecords = useMemo(() => records.map(record => ({
     ...record,
-    isInspected: inspectedHistory.has(`${record.numAviso}-${record.item}-${record.qtdRecebida}`),
+    isInspected: record.status === 'inspected',
     isSelected: selectedIds.has(record.id),
-  })), [records, inspectedHistory, selectedIds]);
+  })), [records, selectedIds]);
 
   const selectedItems = enrichedRecords.filter(r => r.isSelected);
 
@@ -351,7 +404,7 @@ const InspectionModule = () => {
 
                 <div className="mt-5 pt-4 border-t border-slate-700 flex gap-2">
                   {record.isInspected ? (
-                    <button onClick={() => handleRemoveAlreadyInspected(record.id)} className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-red-600/80 rounded-lg hover:bg-red-600 transition-all duration-300"><Trash2 className="w-4 h-4" /> Remover</button>
+                    <button disabled className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-gray-600/80 rounded-lg cursor-not-allowed"><ShieldCheck className="w-4 h-4" /> Inspecionado</button>
                   ) : (
                     <>
                       <button onClick={() => handleInspectToggle(record.id)} className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white rounded-lg transition-all duration-300 ${record.isSelected ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'}`}>
