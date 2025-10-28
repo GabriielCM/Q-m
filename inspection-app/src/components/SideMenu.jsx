@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wrench, SearchCheck, ChevronLeft, LogOut } from 'lucide-react';
+import { LayoutDashboard, SearchCheck, ChevronLeft, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { navLinks, modulePermissions } from '../config/permissions';
 
 const icons = {
   LayoutDashboard,
   SearchCheck,
+  ShieldCheck,
 };
 
 const SideMenu = ({ isCollapsed, toggleSidebar }) => {

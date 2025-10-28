@@ -7,6 +7,8 @@ import LoginPage from './pages/LoginPage';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
+import InspectedPage from './pages/InspectedPage';
+
 function App() {
   return (
     <BrowserRouter>
@@ -17,6 +19,7 @@ function App() {
             <Route path="/" element={<DashboardLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="inspection" element={<InspectionPage />} />
+              <Route path="inspected" element={<InspectedPage />} />
             </Route>
           </Route>
         </Routes>

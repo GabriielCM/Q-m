@@ -182,6 +182,20 @@ const InspectionModule = () => {
   const [crmInfo, setCrmInfo] = useState({ baseUrl: '', token: '' });
   const fileInputRef = useRef(null);
 
+  const fetchRecords = async () => {
+    try {
+        const response = await fetch('/api/records/pending');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setRecords(data);
+    } catch (error) {
+        console.error("Failed to fetch records:", error);
+        showToast('Erro ao carregar registros do banco de dados.', 'error');
+    }
+  };
+
   useEffect(() => {
     try {
       const storedCrmInfo = localStorage.getItem(CRM_STORAGE_KEY);
@@ -190,20 +204,6 @@ const InspectionModule = () => {
       console.error("Failed to load data from localStorage:", error);
       showToast('Falha ao carregar dados salvos.', 'error');
     }
-
-    const fetchRecords = async () => {
-        try {
-            const response = await fetch('/api/records');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            setRecords(data);
-        } catch (error) {
-            console.error("Failed to fetch records:", error);
-            showToast('Erro ao carregar registros do banco de dados.', 'error');
-        }
-    };
     fetchRecords();
   }, []);
 
@@ -248,10 +248,7 @@ const InspectionModule = () => {
             }
 
             showToast(result.message, 'success');
-            // Reload records
-            const recordsResponse = await fetch('/api/records');
-            const recordsData = await recordsResponse.json();
-            setRecords(recordsData);
+            fetchRecords(); // Recarrega os registros
 
         } catch (error) {
             console.error('Error processing file:', error);
@@ -299,48 +296,57 @@ const InspectionModule = () => {
   };
   
   const handleConfirmInspection = async () => {
-    const promises = Array.from(selectedIds).map(async (id) => {
-        try {
-            const response = await fetch(`/api/records/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ status: 'inspected' }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Failed to update record ${id}`);
-            }
-            return response.json();
-        } catch (error) {
-            console.error(`Error updating record ${id}:`, error);
-            throw error; // Re-throw to be caught by Promise.allSettled
-        }
-    });
+    const promises = Array.from(selectedIds).map(id => 
+        fetch(`/api/records/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'inspected' }),
+        })
+    );
 
     try {
-        await Promise.all(promises);
+        const results = await Promise.all(promises);
+        const hasError = results.some(res => !res.ok);
+
+        if (hasError) {
+            throw new Error('Falha ao atualizar um ou mais registros.');
+        }
+
         showToast(`${selectedIds.size} itens marcados como inspecionados!`, 'success');
         setSelectedIds(new Set());
         setIsConfirmModalOpen(false);
-        // Reload records
-        const recordsResponse = await fetch('/api/records');
-        const recordsData = await recordsResponse.json();
-        setRecords(recordsData);
+        fetchRecords(); // Recarrega os registros
     } catch (error) {
-        showToast('Erro ao atualizar o status dos registros.', 'error');
+        console.error("Error updating records:", error);
+        showToast(error.message || 'Erro ao atualizar o status dos registros.', 'error');
     }
   };
 
-  const enrichedRecords = useMemo(() => records.map(record => ({
-    ...record,
-    isInspected: record.status === 'inspected',
-    isSelected: selectedIds.has(record.id),
-  })), [records, selectedIds]);
+  const groupedRecords = useMemo(() => {
+    const groups = records.reduce((acc, record) => {
+      const { numAviso } = record;
+      if (!acc[numAviso]) {
+        acc[numAviso] = [];
+      }
+      acc[numAviso].push(record);
+      return acc;
+    }, {});
+    return Object.entries(groups).map(([numAviso, records]) => ({ numAviso, records }));
+  }, [records]);
 
-  const selectedItems = enrichedRecords.filter(r => r.isSelected);
+  const enrichedRecords = useMemo(() => 
+    groupedRecords.map(group => ({
+      ...group,
+      records: group.records.map(record => ({
+        ...record,
+        isSelected: selectedIds.has(record.id),
+      }))
+    })),
+  [groupedRecords, selectedIds]);
+
+  const selectedItems = useMemo(() => 
+    enrichedRecords.flatMap(group => group.records).filter(r => r.isSelected),
+  [enrichedRecords]);
 
   // --- Renderização ---
   return (
@@ -382,42 +388,43 @@ const InspectionModule = () => {
             <p className="mt-1 text-slate-400">Importe um arquivo .lst para começar.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {enrichedRecords.map(record => (
-              <div key={record.id} className={`relative p-5 rounded-xl border bg-slate-800/50 backdrop-blur-sm transition-all duration-300 ${record.isSelected ? 'shadow-lg shadow-green-500/20 border-green-500 bg-green-900/30' : record.isInspected ? 'border-purple-500 bg-purple-900/30' : 'border-slate-700'}`}>
-                {record.isSelected && <Badge text="Selecionado" className="bg-green-500 text-white animate-pulse" icon={CheckCircle} />}
-                {record.isInspected && <Badge text="Já Inspecionado" className="bg-purple-500 text-white" icon={ShieldCheck} />}
-                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl transition-all duration-300 ${record.isSelected ? 'bg-green-500' : 'bg-transparent'}`}></div>
-                
-                <div className="flex justify-between items-start mb-3">
-                  <p className="font-bold text-lg text-white pr-16">{record.descricao}</p>
-                </div>
+          <div className="space-y-8">
+            {enrichedRecords.map(({ numAviso, records }) => (
+              <div key={numAviso}>
+                <h2 className="text-xl font-bold text-white mb-4">Aviso de Recebimento: {numAviso}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {records.map(record => (
+                    <div key={record.id} className={`relative p-5 rounded-xl border bg-slate-800/50 backdrop-blur-sm transition-all duration-300 ${record.isSelected ? 'shadow-lg shadow-green-500/20 border-green-500 bg-green-900/30' : 'border-slate-700'}`}>
+                      {record.isSelected && <Badge text="Selecionado" className="bg-green-500 text-white animate-pulse" icon={CheckCircle} />}
+                      
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl transition-all duration-300 ${record.isSelected ? 'bg-green-500' : 'bg-transparent'}`}></div>
+                      
+                      <div className="flex justify-between items-start mb-3">
+                        <p className="font-bold text-lg text-white pr-16">{record.descricao}</p>
+                      </div>
 
-                <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-400">Item:</span> <span className="font-mono text-blue-300">{record.item}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Aviso Receb.:</span> <span className="font-mono text-blue-300">{record.numAviso}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Quantidade:</span> <span className="font-mono text-blue-300">{record.qtdRecebida}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Data Entrada:</span> <span className="font-mono text-blue-300">{record.dataEntrada}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">OC:</span> <span className="font-mono text-blue-300">{record.oc}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Fornecedor:</span> <span className="font-mono text-blue-300 truncate max-w-[150px]">{record.fornecedor}</span></div>
-                </div>
+                      <div className="space-y-2 text-sm">
+                          <div className="flex justify-between"><span className="text-slate-400">Item:</span> <span className="font-mono text-blue-300">{record.item}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Aviso Receb.:</span> <span className="font-mono text-blue-300">{record.numAviso}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Quantidade:</span> <span className="font-mono text-blue-300">{record.qtdRecebida}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Data Entrada:</span> <span className="font-mono text-blue-300">{record.dataEntrada}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">OC:</span> <span className="font-mono text-blue-300">{record.oc}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Fornecedor:</span> <span className="font-mono text-blue-300 truncate max-w-[150px]">{record.fornecedor}</span></div>
+                      </div>
 
-                <div className="mt-5 pt-4 border-t border-slate-700 flex gap-2">
-                  {record.isInspected ? (
-                    <button disabled className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-gray-600/80 rounded-lg cursor-not-allowed"><ShieldCheck className="w-4 h-4" /> Inspecionado</button>
-                  ) : (
-                    <>
-                      <button onClick={() => handleInspectToggle(record.id)} className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white rounded-lg transition-all duration-300 ${record.isSelected ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'}`}>
-                        {record.isSelected ? <><X className="w-4 h-4" />Cancelar</> : <><CheckCircle className="w-4 h-4" />Inspecionar</>}
-                      </button>
-                      <button onClick={() => handleOpenDrawing(record.item)} className="flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300">
-                        <Search className="w-4 h-4" /> Desenho
-                      </button>
-                    </>
-                  )}
-                </div>
-                <div className="mt-2 text-center text-xs text-slate-500">
-                  Status: {record.isInspected ? <span className="font-bold text-purple-400">Já Inspecionado</span> : (record.isSelected ? <span className="font-bold text-green-400">Selecionado</span> : <span className="text-slate-400">Pendente</span>)}
+                      <div className="mt-5 pt-4 border-t border-slate-700 flex gap-2">
+                        <button onClick={() => handleInspectToggle(record.id)} className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white rounded-lg transition-all duration-300 ${record.isSelected ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'}`}>
+                              {record.isSelected ? <><X className="w-4 h-4" />Cancelar</> : <><CheckCircle className="w-4 h-4" />Inspecionar</>}
+                            </button>
+                            <button onClick={() => handleOpenDrawing(record.item)} className="flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300">
+                              <Search className="w-4 h-4" /> Desenho
+                            </button>
+                      </div>
+                      <div className="mt-2 text-center text-xs text-slate-500">
+                        Status: {record.isSelected ? <span className="font-bold text-green-400">Selecionado</span> : <span className="text-slate-400">Pendente</span>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

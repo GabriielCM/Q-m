@@ -4,59 +4,60 @@
  * @returns {Array<object>} An array of record objects.
  */
 function parseLstFile(fileContent) {
-  const lines = fileContent.split('\n');
-  const records = [];
-  
-  // Regex to identify the main data lines
-  const lineRegex = /^(\d{2}\/\d{2}\/\d{2})\s+(\d+)\s+(\d+)\s+([A-Z]{3}\.\d+)\s+(.+?)\s+UN\s+(\d+)\s+([\d,.]+)\s+([\d,.]+)\s+(.+?)\s+(\d{2}\/\d{2}\/\d{4})\s+RECEB\s+(\d+)/;
+    const lines = fileContent.split('\n');
+    const records = [];
+    let razaoSocial = '';
 
-  // The first two lines are headers, so we start from the third line
-  // But it's safer to iterate and check which lines match the pattern
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) continue;
+    // Regex para extrair a razão social
+    const razaoSocialRegex = /^FORNECEDOR\s*:\s*\d+\s*-\s*(.+)$/;
+    // Regex para identificar as linhas de dados principais
+    const lineRegex = /^(\d{2}\/\d{2}\/\d{2})\s+(\d+)\s+(\d+)\s+([A-Z]{3}\.\d+)\s+(.+?)\s+UN\s+(\d+)\s+([\d,.]+)\s+([\d,.]+)\s+(.+?)\s+(\d{2}\/\d{2}\/\d{4})\s+RECEB\s+(\d+)/;
 
-    // Extracting the provider name from the first line
-    // This is a simplistic approach, assuming the first non-empty line is the provider
-    // A more robust solution might be needed if the format varies
-    // For now, we will extract it but won't use it as it's not in the final data structure
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
 
-    const match = trimmedLine.match(lineRegex);
+        const razaoSocialMatch = trimmedLine.match(razaoSocialRegex);
+        if (razaoSocialMatch) {
+            razaoSocial = razaoSocialMatch[1].trim();
+            continue; // Pula para a próxima linha após encontrar a razão social
+        }
 
-    if (match) {
-      try {
-        const [, 
-          dataEntrada, 
-          numAviso, // AR
-          seqAviso, // Seq. A.R.
-          item, // MATERIAL
-          descricao, // DENOMINACAO
-          nrNf, // NR.NF.
-          qtdRecebida, // QUANTIDADE RECEBIDA
-          precoTotal, // PRECO TOTAL
-          fornecedorRaw, // FORNECEDOR
-          dataLimite, // DT.LIMITE INSPECAO
-          oc // O.C.
-        ] = match;
+        const match = trimmedLine.match(lineRegex);
+        if (match) {
+            try {
+                const [, 
+                  dataEntrada, 
+                  numAviso, 
+                  seqAviso, 
+                  item, 
+                  descricao, 
+                  nrNf, 
+                  qtdRecebida, 
+                  precoTotal, 
+                  fornecedorRaw, 
+                  dataLimite, 
+                  oc 
+                ] = match;
 
-        const id = `${numAviso}-${item}-${oc}`;
+                const id = `${numAviso}-${item}-${oc}`;
 
-        records.push({
-          fornecedor: fornecedorRaw.trim(), // This might need better parsing
-          razaoSocial: '', // Not available in the provided line format
-          item: item.trim(),
-          descricao: descricao.trim(),
-          dataEntrada: dataEntrada.trim(),
-          numAviso: parseInt(numAviso, 10),
-          qtdRecebida: parseFloat(qtdRecebida.replace('.', '').replace(',', '.')), 
-          oc: parseInt(oc, 10),
-          id: id,
-        });
-      } catch (e) {
-        console.error('Error parsing line:', line, e);
-      }
+                records.push({
+                  fornecedor: fornecedorRaw.trim(),
+                  razaoSocial: razaoSocial, // Adiciona a razão social extraída
+                  item: item.trim(),
+                  descricao: descricao.trim(),
+                  dataEntrada: dataEntrada.trim(),
+                  numAviso: parseInt(numAviso, 10),
+                  qtdRecebida: parseFloat(qtdRecebida.replace('.', '').replace(',', '.')), 
+                  oc: parseInt(oc, 10),
+                  id: id,
+                });
+            } catch (e) {
+                console.error('Error parsing line:', line, e);
+            }
+        }
     }
-  }
   
   return records;
 }

@@ -9,10 +9,15 @@ export const navLinks = [
     label: 'Inspeção',
     icon: 'SearchCheck',
   },
+  {
+    path: '/inspected',
+    label: 'Inspecionados',
+    icon: 'ShieldCheck',
+  },
   // Add future modules here
 ];
 
 export const modulePermissions = {
-  admin: ['/', '/inspection'],
-  user: ['/inspection'],
+  admin: ['/', '/inspection', '/inspected'],
+  user: ['/inspection', '/inspected'],
 };

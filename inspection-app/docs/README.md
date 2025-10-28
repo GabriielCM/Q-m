@@ -2,6 +2,18 @@
 
 This document provides an overview of the project structure to assist in future development and maintenance.
 
+## Getting Started
+
+To get started with this project, follow these steps:
+
+1.  Clone the repository to your local machine.
+2.  Navigate to the `inspection-app` directory.
+3.  Install the dependencies by running `npm install`.
+4.  Start the backend server by running `node server.js`.
+5.  In a separate terminal, start the frontend development server by running `npm start`.
+
+The application will be available at `http://localhost:3000`.
+
 ## Root Directory
 
 -   `package-lock.json`: Records the exact version of each package that is installed.

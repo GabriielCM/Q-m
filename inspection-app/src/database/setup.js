@@ -6,7 +6,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error(err.message);
   }
-  console.log('Connected to the inspections database.');
 });
 
 db.serialize(() => {
@@ -22,7 +21,6 @@ db.serialize(() => {
     if (err) {
       console.error(err.message);
     }
-    console.log('"reports" table created or already exists.');
   });
 
   db.run(`CREATE TABLE IF NOT EXISTS records (
@@ -37,12 +35,12 @@ db.serialize(() => {
     qtdRecebida REAL,
     oc INTEGER,
     record_id TEXT UNIQUE,
+    status TEXT DEFAULT 'pending',
     FOREIGN KEY (report_id) REFERENCES reports (id)
   )`, (err) => {
     if (err) {
       console.error(err.message);
     }
-    console.log('"records" table created or already exists.');
   });
 });
 
@@ -50,5 +48,4 @@ db.close((err) => {
   if (err) {
     console.error(err.message);
   }
-  console.log('Closed the database connection.');
 });
